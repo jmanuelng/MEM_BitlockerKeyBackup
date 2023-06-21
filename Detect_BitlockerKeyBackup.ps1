@@ -1,3 +1,65 @@
+function Test-AzureADBitLockerBackup {
+    <#
+    .SYNOPSIS
+        Check the BitLocker Management event log for event ID 845 to confirm successful backup of BitLocker key to Azure AD for the system drive.
+
+    .DESCRIPTION
+        This function queries the BitLocker Management event log for event ID 845 and checks if the level of the event is "Information". 
+        If the event is found and is specifically for the system drive, it means the BitLocker key backup to Azure AD was successful.
+
+    .PARAMETER nDays
+        The number of past days to check for the event. The default is 1.
+
+    .NOTES
+        Run this script as an administrator.
+
+        Information and/or References:
+            https://techcommunity.microsoft.com/t5/intune-customer-success/using-bitlocker-recovery-keys-with-microsoft-endpoint-manager/ba-p/2255517
+
+    .EXAMPLE
+        Test-AzureADBitLockerBackup -nDays 7
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false)]
+        [int]
+        $nDays = 1
+    )
+
+    try {
+        # Get the date nDays ago
+        $pastDate = (Get-Date).AddDays(-$nDays)
+
+        # Get the system drive from the environment variables
+        $systemDrive = $env:SystemDrive
+
+        # Get the BitLocker Management event log events with ID 845 and Level 4 (Information) from the past nDays
+        $events = Get-WinEvent -FilterHashTable @{LogName="Microsoft-Windows-BitLocker/BitLocker Management"; ID=845; Level=4; StartTime=$pastDate} -ErrorAction Stop
+
+        # If events exist, check if any of them are for the system drive
+        if ($events) {
+            foreach ($event in $events) {
+                $eventData = [xml]$event.ToXml()
+                $volume = $eventData.Event.EventData.Data | Where-Object {$_.Name -eq 'VolumeMountPoint'} | Select-Object -ExpandProperty '#text'
+                if ($volume -eq $systemDrive) {
+                    Write-Host "BitLocker key backup to Azure AD for the system drive ($systemDrive) was successful in the past $nDays day(s)." -ForegroundColor Green
+                    return 0
+                }
+            }
+
+            Write-Host "No events found in the past $nDays day(s) indicating successful BitLocker key backup to Azure AD for the system drive ($systemDrive)." -ForegroundColor Yellow
+            return 1
+        } else {
+            Write-Host "No events found in the past $nDays day(s) indicating successful BitLocker key backup to Azure AD." -ForegroundColor Yellow
+            return 1
+        }
+    }
+    catch {
+        Write-Host "Failed to query BitLocker Management event log: $_" -ForegroundColor Red
+        return 1
+    }
+}
+
 function Test-OSBitLockerStatus {
     <#
     .SYNOPSIS
@@ -8,6 +70,8 @@ function Test-OSBitLockerStatus {
 
     .NOTES
         Run this script with administrator privileges.
+
+        Original idea was to use this function, it is no longer used. Instead we use Test-AzureADBitLockerBackup as it confirms successful Key backup to AzureAD
     #>
 
     # Identify the system drive
@@ -128,7 +192,7 @@ Write-Host "`n`n"
 # Call functions
 $encryptedDrives = Test-AllDrivesEncryption
 $bitlockerinfo = Get-BitLockerVolumeInfo
-$bitlockerOS = Test-OSBitLockerStatus
+$bitlockerOS = Test-AzureADBitLockerBackup
 
 $txtStatus = "$encryptedDrives[$bitlockerinfo]"
 
