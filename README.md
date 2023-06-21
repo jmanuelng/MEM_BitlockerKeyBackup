@@ -19,7 +19,7 @@ To use these scripts, clone the repository to your local machine or download the
 For usage via Microsoft Intune's Remediations feature, follow these steps:
 
 1. Clone or download the scripts from this repository.
-2. In the Microsoft Endpoint Manager admin center, select Devices and then Remediations.
+2. In the Microsoft Intune admin center, select Devices and then Remediations.
 3. Click on "+ New Remediation" to create a new remediation.
 4. In the new remediation, provide a name and description, and upload the PowerShell scripts from this repository. The `Detect_BitlockerKeyBackup.ps1` script will be used for detection and the `Fix_BitlockerKeyBackup.ps1` script will be used for remediation.
 5. Assign the remediation to a group of devices in the Assignments section of the remediation.
